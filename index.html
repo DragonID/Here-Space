@@ -6,7 +6,7 @@
 <!-- AudioSynth (NOTE: Also saved on the USB, no CDN available so you can copy into a script tag or hold local copy -->
 <script src="audiosynth.js"></script>
 <!-- AngularJS -->
-<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.0-rc.0/angular.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.0/angular.min.js"></script>
 <!-- Bootstrap to format -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet" />
 <!-- pusher-js, suggested for NASA API -->
@@ -21,7 +21,7 @@
     <div ng-controller="Display">
         <div class="panel panel-default col-lg-12 col-md-12 col-sm-12">
             <div class="panel-body">
-                <h1>Hear Space</h1>
+                <h1>Hear:Space</h1>
             </div>
         </div>
         <div class="panel panel-default col-lg-6 col-md-6 col-sm-6">
@@ -110,7 +110,6 @@ var tempCanvas;
         var piano = Synth.createInstrument('piano');
 
 
-
         //Okay, only complicated part here, API has a max number of request per some time period.  I store 50 entries in localStorage (clientside db essentially) and loop through those
         //Didn't have time to chain 50 on the first go so we just add one.  So you can just populate the DataStore from the api directly = profit.
         //-----------------------------------
@@ -150,7 +149,7 @@ var tempCanvas;
             commonSeriesSettings: {
                 type: 'bubble'
             },
-            title: 'Hear Space ISS Coordinates',
+            title: 'Hear:Space ISS Coordinates',
             tooltip: {
                 enabled: true,
                 location: "edge",
@@ -165,7 +164,6 @@ var tempCanvas;
                 title: 'Latitude'
             },
             customizePoint: function (point) {
-                //console.log(point);
                 if (point.size > 30) {
                     return { color: 'red' }
                 }
@@ -285,7 +283,7 @@ var tempCanvas;
 
 
 </script>
-<script>
+/* <script>
     //audiosynth.js
 
     var Synth, AudioSynth, AudioSynthInstrument;
@@ -694,4 +692,4 @@ var tempCanvas;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-</script>
+</script> */
