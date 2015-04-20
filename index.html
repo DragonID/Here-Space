@@ -1,681 +1,697 @@
-<!-- jQuery --><script src="https://code.jquery.com/jquery-2.1.3.min.js"></script><!-- Chart Widget, DevExtreme --><script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/globalize/0.1.1/globalize.min.js"></script>        <script type="text/javascript" src="http://cdn3.devexpress.com/jslib/14.2.6/js/dx.chartjs.js"></script><!-- AudioSynth (NOTE: Also saved on the USB, no CDN available so you can copy into a script tag or hold local copy --><script src="audiosynth.js"></script><!-- AngularJS --><script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.0-rc.0/angular.min.js"></script><!-- Bootstrap to format --><link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet" /><!-- pusher-js, suggested for NASA API --><script src="http://js.pusher.com/2.2/pusher.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.4/js/bootstrap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pusher-angular/0.1.4/pusher-angular.min.js"></script><script src="chroma.js"></script><div ng-app="MyApp">
-
-    <div ng-controller="APICtrl">
-    </div>
-    <div ng-controller="Display">
-        <div class="panel panel-default col-lg-12 col-md-12 col-sm-12">
-            <div class="panel-body">
-                <h1>Hear Space</h1>
-            </div>
-        </div>
-        <div class="panel panel-default col-lg-6 col-md-6 col-sm-6">
-            <div class="panel-body">
-                Parameters
-
-                <div>
-                    <select ng-change="ChangeInstrument();" ng-model="instrument">
-                        <option>Piano</option>
-                        <option>Acoustic</option>
-                        <option>Organ</option>
-                        <option>EDM</option>
-                    </select></div>
-            </div>
-			<div id="spectrumcontainer">
-			<canvas id="specvis"></canvas>
-			</div>
-        </div>
-        <div class="panel panel-default col-lg-6 col-md-6 col-sm-6">
-            <div class="panel-body">
-                <div id="NoteGridObject"></div>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<script>
-var hot;
-var tempCanvas;
-	jQuery(document).ready(function(){
-	tempCanvas = jQuery("#specvis").get(0);;
-	//document.createElement("specvis");
-    var tempCtx = jQuery("#specvis")[0].getContext('2d');
-	
-    tempCanvas.width=500;
-    tempCanvas.height=360;
-	//jQuery('#spectrumcontainer').append
-	
-    // used for color distribution
-    hot = new chroma.ColorScale({
-        colors:['#000000', '#ff0000', '#ffff00', '#ffffff'],
-        positions:[0, .25, .75, 1],
-        mode:'rgb',
-        limits:[0, 300]
-    });
-		
-		
-	});
-    //Array of values holding: Longitude,Latitude,NoteValue for circle size
-    var DisplayArray = [];
-
-    //Array of notes, dynamic, so can change
-    NoteArray = ['A', 'A#', 'C', 'D', 'D#', 'F', 'G', 'A'];
-
-    //shared instrument variable
-    var instrument = 'piano';
- 
-    //Angular module for API, display elements
-    angular.module('MyApp', ['pusher-angular'])
-    .controller('Display', ['$scope', '$pusher', function ($scope, $pusher) {
-        $scope.instrument = 'Piano';
-        $scope.ChangeInstrument = function () {
-            instrument = $scope.instrument.toString().toLowerCase();
-        }
-
-    }])
-
-    .controller('APICtrl', ['$scope', '$pusher', function ($scope, $pusher) {
-        //NASA suggested API
-        var client = new Pusher('fa15651bc1ad6c916fc7');
-        var pusher = $pusher(client);
-        var issChannel = pusher.subscribe('iss-channel');
-        //issChannel.bind('new-location', function (iss) {
-        //    console.log(iss);
-        //});
-    }]);
-	
-    $(document).ready(function () {
-        //Initialize synth instrument
-        //http://www.keithwhor.com/music/
-        Synth instanceof AudioSynth;
-        var testInstance = new AudioSynth;
-        testInstance instanceof AudioSynth;
-        testInstance === Synth;
-        var piano = Synth.createInstrument('piano');
-
-
-
-        //Okay, only complicated part here, API has a max number of request per some time period.  I store 50 entries in localStorage (clientside db essentially) and loop through those
-        //Didn't have time to chain 50 on the first go so we just add one.  So you can just populate the DataStore from the api directly = profit.
-        //-----------------------------------
-
-        //Check if localStorage item is there
-        var StringDataStore = localStorage.getItem('NASAISSData');
-        //declare the store for looping
-        var DataStore = [];
-        //Add one record, or don't add any if >50
-			if (StringDataStore == null || typeof StringDataStore === 'undefined') {
-				AddRecord();			}
-			else {
-				DataStore = JSON.parse(StringDataStore);
-				if (DataStore.length < 50) {
-					AddRecord();
-				}
-				else {
-				localStorage.clear();
-				}
-			}
-		//}
-		function AddRecord() {
-            //API I used, same data
-            $.getJSON('http://api.open-notify.org/iss-now.json?callback=?', function (iss) {
-                DataStore.push(iss.iss_position);
-                localStorage.setItem('NASAISSData', JSON.stringify(DataStore));
-            });
-        }
-        
-        //-----------------------------------
-
-
-
-        //Chart object - this is visualization, can be replaced with party-mode
-        $('#NoteGridObject').dxChart({
-            dataSource: DisplayArray,
-            commonSeriesSettings: {
-                type: 'bubble'
-            },
-            title: 'Hear Space ISS Coordinates',
-            tooltip: {
-                enabled: true,
-                location: "edge",
-                customizeText: function () { '<br/>Latitude: ' + this.argumentText + 'M <br/>Longitude: ' + this.valueText ; }
-            },
-            argumentAxis: {
-                label: {
-                    customizeText: function () {
-                        return this.value;
-                    }
-                },
-                title: 'Latitude'
-            },
-            customizePoint: function (point) {
-                //console.log(point);
-                if (point.size > 30) {
-                    return { color: 'red' }
-                }
-                else if (point.size < 14) {
-                    return { color: 'blue' }
-                }
-                else if (point.size < 22 && point.size >= 14) {
-                    return { color: 'green' }
-                }
-                else if (point.size < 30 && point.size >= 22) {
-                    return { color: 'yellow' }
-                }
-                else if (point.size < 14) {
-                    return { color: 'blue' }
-                }
-            },
-            valueAxis: {
-                label: {
-                    customizeText: function () {
-                        return this.value;
-                    }
-                },
-                title: 'Longitude'
-            },
-            legend: {
-                position: 'inside',
-                horizontalAlignment: 'left',
-                border: {
-                    visible: true
-                }
-            },
-            palette: ["#008000"],
-            onSeriesClick: function (e) {
-                var series = e.target;
-                series.isVisible() ? series.hide() : series.show();
-            },
-            series: [{
-                name: 'Note Value',
-                argumentField: 'latitude',
-                valueField: 'longitude',
-                sizeField: 'NoteValue'
-            }]
-        });
-
-
-        
-        //jQuery bind chart to container
-        var displayGrid = $("#NoteGridObject").dxChart("instance");
-
-
-        //Single Digit min/max/range default (0-9)
-        var Max = 9;
-        var Min = 0;
-        var Range = Max - Min;
-
-        var index = 0;
-        setInterval(function () {
-            //redeclare the instrument in case the user changes it
-            var piano = Synth.createInstrument(instrument);
-            
-            //grab the first digit after the decimal point
-            var noteValueChosen = DataStore[index].longitude.toString().split(".")[1][1];
-
-            //set new max/min/range (if you decide to use a new notevalueChosen (ex: all integers instead of 0-9)
-            if (noteValueChosen > Max) {
-                Max = noteValueChosen;
-            }
-            if (noteValueChosen < Min) {
-                Min = noteValueChosen;
-            }
-            Range = Max - Min;
-
-            //map the noteValue to the note array length 
-            NoteToPlay = Math.round((noteValueChosen - Min) * ((NoteArray.length - 1) / Range));
-
-            //Add a NoteValue to display the circles in the chart (*5 to get a better visual)
-            DataStore[index].NoteValue = NoteToPlay * 5;
-			
-			if (index > 9) {
-            //Push this value to the chart dataSource
-            DisplayArray.push(DataStore[index]);
-            //Update chart dataSource
-            displayGrid.option({ dataSource: DisplayArray });
-            //reRender chart
-            displayGrid.render();
-			}
-
-            //Octave, same deal as note my default was range of 3: 2nd/3rd/4th octaves
-            var octaveValueChosen = DataStore[index].longitude.toString().split(".")[1][2];
-            var OctaveToPlay = Math.round(octaveValueChosen * (2 / Range)) + 2;
-
-            //play the note (grab the note from the note array and use 2/3/4 octave
-            //Play(string note,int octave,decimal seconds(length))
-            piano.play(NoteArray[NoteToPlay], OctaveToPlay, 2);
-
-            //loop through datastore, again if you replace it with and api just put the API results right in the loop
-            if (index + 1 >= DataStore.length) {
-                index = 0;
-            }
-            else {
-                index++;
-            }
-			 AddRecord();
-			 
-			 /* function AddRecord() {
-            //API I used, same data
-            $.getJSON('http://api.open-notify.org/iss-now.json?callback=?', function (iss) {
-                DataStore.push(iss.iss_position);
-                localStorage.setItem('NASAISSData', JSON.stringify(DataStore));
-            });*/
-        
-        },
-		//interval between notes, currently static
-        500);
-
-    });
-
-
-</script>
-<script>
-    //audiosynth.js
-
-    var Synth, AudioSynth, AudioSynthInstrument;
-    !function () {
-
-        var URL = window.URL || window.webkitURL;
-        var Blob = window.Blob;
-
-        if (!URL || !Blob) {
-            throw new Error('This browser does not support AudioSynth');
-        }
-
-        var _encapsulated = false;
-        var AudioSynthInstance = null;
-        var pack = function (c, arg) { return [new Uint8Array([arg, arg >> 8]), new Uint8Array([arg, arg >> 8, arg >> 16, arg >> 24])][c]; };
-        var setPrivateVar = function (n, v, w, e) { Object.defineProperty(this, n, { value: v, writable: !!w, enumerable: !!e }); };
-        var setPublicVar = function (n, v, w) { setPrivateVar.call(this, n, v, w, true); };
-        AudioSynthInstrument = function AudioSynthInstrument() { this.__init__.apply(this, arguments); };
-        var setPriv = setPrivateVar.bind(AudioSynthInstrument.prototype);
-        var setPub = setPublicVar.bind(AudioSynthInstrument.prototype);
-        setPriv('__init__', function (a, b, c) {
-            if (!_encapsulated) { throw new Error('AudioSynthInstrument can only be instantiated from the createInstrument method of the AudioSynth object.'); }
-            setPrivateVar.call(this, '_parent', a);
-            setPublicVar.call(this, 'name', b);
-            setPrivateVar.call(this, '_soundID', c);
-        });
-        setPub('play', function (note, octave, duration) {
-            return this._parent.play(this._soundID, note, octave, duration);
-        });
-        setPub('generate', function (note, octave, duration) {
-            return this._parent.generate(this._soundID, note, octave, duration);
-        });
-        AudioSynth = function AudioSynth() { if (AudioSynthInstance instanceof AudioSynth) { return AudioSynthInstance; } else { this.__init__(); return this; } };
-        setPriv = setPrivateVar.bind(AudioSynth.prototype);
-        setPub = setPublicVar.bind(AudioSynth.prototype);
-        setPriv('_debug', false, true);
-        setPriv('_bitsPerSample', 16);
-        setPriv('_channels', 1);
-        setPriv('_sampleRate', 44100, true);
-        setPub('setSampleRate', function (v) {
-            this._sampleRate = Math.max(Math.min(v | 0, 44100), 4000);
-            this._clearCache();
-            return this._sampleRate;
-        });
-        setPub('getSampleRate', function () { return this._sampleRate; });
-        setPriv('_volume', 32768, true);
-        setPub('setVolume', function (v) {
-            v = parseFloat(v); if (isNaN(v)) { v = 0; }
-            v = Math.round(v * 32768);
-            this._volume = Math.max(Math.min(v | 0, 32768), 0);
-            this._clearCache();
-            return this._volume;
-        });
-        setPub('getVolume', function () { return Math.round(this._volume / 32768 * 10000) / 10000; });
-        setPriv('_notes', { 'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13, 'E': 329.63, 'F': 346.23, 'F#': 369.99, 'G': 392.00, 'G#': 415.30, 'A': 440.00, 'A#': 466.16, 'B': 493.88 });
-        setPriv('_fileCache', [], true);
-        setPriv('_temp', {}, true);
-        setPriv('_sounds', [], true);
-        setPriv('_mod', [function (i, s, f, x) { return Math.sin((2 * Math.PI) * (i / s) * f + x); }]);
-        setPriv('_resizeCache', function () {
-            var f = this._fileCache;
-            var l = this._sounds.length;
-            while (f.length < l) {
-                var octaveList = [];
-                for (var i = 0; i < 8; i++) {
-                    var noteList = {};
-                    for (var k in this._notes) {
-                        noteList[k] = {};
-                    }
-                    octaveList.push(noteList);
-                }
-                f.push(octaveList);
-            }
-        });
-        setPriv('_clearCache', function () {
-            this._fileCache = [];
-            this._resizeCache();
-        });
-        setPub('generate', function (sound, note, octave, duration) {
-            var thisSound = this._sounds[sound];
-            if (!thisSound) {
-                for (var i = 0; i < this._sounds.length; i++) {
-                    if (this._sounds[i].name == sound) {
-                        thisSound = this._sounds[i];
-                        sound = i;
-                        break;
-                    }
-                }
-            }
-            if (!thisSound) { throw new Error('Invalid sound or sound ID: ' + sound); }
-            var t = (new Date).valueOf();
-            this._temp = {};
-            octave |= 0;
-            octave = Math.min(8, Math.max(1, octave));
-            var time = !duration ? 2 : parseFloat(duration);
-            if (typeof (this._notes[note]) == 'undefined') { throw new Error(note + ' is not a valid note.'); }
-            if (typeof (this._fileCache[sound][octave - 1][note][time]) != 'undefined') {
-                if (this._debug) { console.log((new Date).valueOf() - t, 'ms to retrieve (cached)'); }
-                return this._fileCache[sound][octave - 1][note][time];
-            } else {
-                var frequency = this._notes[note] * Math.pow(2, octave - 4);
-                var sampleRate = this._sampleRate;
-                var volume = this._volume;
-                var channels = this._channels;
-                var bitsPerSample = this._bitsPerSample;
-                var attack = thisSound.attack(sampleRate, frequency, volume);
-                var dampen = thisSound.dampen(sampleRate, frequency, volume);
-                var waveFunc = thisSound.wave;
-                var waveBind = { modulate: this._mod, vars: this._temp };
-                var val = 0;
-                var curVol = 0;
-
-                var data = new Uint8Array(new ArrayBuffer(Math.ceil(sampleRate * time * 2)));
-                var attackLen = (sampleRate * attack) | 0;
-                var decayLen = (sampleRate * time) | 0;
-
-                for (var i = 0 | 0; i !== attackLen; i++) {
-
-                    val = volume * (i / (sampleRate * attack)) * waveFunc.call(waveBind, i, sampleRate, frequency, volume);
-
-                    data[i << 1] = val;
-                    data[(i << 1) + 1] = val >> 8;
-
-                }
-
-                for (; i !== decayLen; i++) {
-
-                    val = volume * Math.pow((1 - ((i - (sampleRate * attack)) / (sampleRate * (time - attack)))), dampen) * waveFunc.call(waveBind, i, sampleRate, frequency, volume);
-
-                    data[i << 1] = val;
-                    data[(i << 1) + 1] = val >> 8;
-
-                }
-				//Uint8Array is a frequency bucket - MARKER
-				drawSpectrogram(data);
-				
-				
-				
-                var out = [
-                    'RIFF',
-                    pack(1, 4 + (8 + 24/* chunk 1 length */) + (8 + 8/* chunk 2 length */)), // Length
-                    'WAVE',
-                    // chunk 1
-                    'fmt ', // Sub-chunk identifier
-                    pack(1, 16), // Chunk length
-                    pack(0, 1), // Audio format (1 is linear quantization)
-                    pack(0, channels),
-                    pack(1, sampleRate),
-                    pack(1, sampleRate * channels * bitsPerSample / 8), // Byte rate
-                    pack(0, channels * bitsPerSample / 8),
-                    pack(0, bitsPerSample),
-                    // chunk 2
-                    'data', // Sub-chunk identifier
-                    pack(1, data.length * channels * bitsPerSample / 8), // Chunk length
-                    data
-                ];
-                var blob = new Blob(out, { type: 'audio/wav' });
-                var dataURI = URL.createObjectURL(blob);
-               // this._fileCache[sound][octave - 1][note][time] = dataURI;
-                if (this._debug) { console.log((new Date).valueOf() - t, 'ms to generate'); }
-                return dataURI;
-            }
-        });
-        setPub('play', function (sound, note, octave, duration) {
-            var src = this.generate(sound, note, octave, duration);
-            var audio = new Audio(src);
-            audio.play();
-            return true;
-        });
-        setPub('debug', function () { this._debug = true; });
-        setPub('createInstrument', function (sound) {
-            var n = 0;
-            var found = false;
-            if (typeof (sound) == 'string') {
-                for (var i = 0; i < this._sounds.length; i++) {
-                    if (this._sounds[i].name == sound) {
-                        found = true;
-                        n = i;
-                        break;
-                    }
-                }
-            } else {
-                if (this._sounds[sound]) {
-                    n = sound;
-                    sound = this._sounds[n].name;
-                    found = true;
-                }
-            }
-            if (!found) { throw new Error('Invalid sound or sound ID: ' + sound); }
-            _encapsulated = true;
-            var ins = new AudioSynthInstrument(this, sound, n);
-            _encapsulated = false;
-            return ins;
-        });
-        setPub('listSounds', function () {
-            var r = [];
-            for (var i = 0; i < this._sounds.length; i++) {
-                r.push(this._sounds[i].name);
-            }
-            return r;
-        });
-        setPriv('__init__', function () {
-            this._resizeCache();
-        });
-        setPub('loadSoundProfile', function () {
-            for (var i = 0, len = arguments.length; i < len; i++) {
-                o = arguments[i];
-                if (!(o instanceof Object)) { throw new Error('Invalid sound profile.'); }
-                this._sounds.push(o);
-            }
-            this._resizeCache();
-            return true;
-        });
-        setPub('loadModulationFunction', function () {
-            for (var i = 0, len = arguments.length; i < len; i++) {
-                f = arguments[i];
-                if (typeof (f) != 'function') { throw new Error('Invalid modulation function.'); }
-                this._mod.push(f);
-            }
-            return true;
-        });
-        AudioSynthInstance = new AudioSynth();
-        Synth = AudioSynthInstance;
-    }();
-
-    Synth.loadModulationFunction(
-        function (i, sampleRate, frequency, x) { return 1 * Math.sin(2 * Math.PI * ((i / sampleRate) * frequency) + x); },
-        function (i, sampleRate, frequency, x) { return 1 * Math.sin(4 * Math.PI * ((i / sampleRate) * frequency) + x); },
-        function (i, sampleRate, frequency, x) { return 1 * Math.sin(8 * Math.PI * ((i / sampleRate) * frequency) + x); },
-        function (i, sampleRate, frequency, x) { return 1 * Math.sin(0.5 * Math.PI * ((i / sampleRate) * frequency) + x); },
-        function (i, sampleRate, frequency, x) { return 1 * Math.sin(0.25 * Math.PI * ((i / sampleRate) * frequency) + x); },
-        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(2 * Math.PI * ((i / sampleRate) * frequency) + x); },
-        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(4 * Math.PI * ((i / sampleRate) * frequency) + x); },
-        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(8 * Math.PI * ((i / sampleRate) * frequency) + x); },
-        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(0.5 * Math.PI * ((i / sampleRate) * frequency) + x); },
-        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(0.25 * Math.PI * ((i / sampleRate) * frequency) + x); }
-    );
-
-    Synth.loadSoundProfile({
-        name: 'piano',
-        attack: function () { return 0.002; },
-        dampen: function (sampleRate, frequency, volume) {
-            return Math.pow(0.5 * Math.log((frequency * volume) / sampleRate), 2);
-        },
-        wave: function (i, sampleRate, frequency, volume) {
-            var base = this.modulate[0];
-            return this.modulate[1](
-                i,
-                sampleRate,
-                frequency,
-                Math.pow(base(i, sampleRate, frequency, 0), 2) +
-                    (0.75 * base(i, sampleRate, frequency, 0.25)) +
-                    (0.1 * base(i, sampleRate, frequency, 0.5))
-            );
-        }
-    },
-    {
-        name: 'organ',
-        attack: function () { return 0.3 },
-        dampen: function (sampleRate, frequency) { return 1 + (frequency * 0.01); },
-        wave: function (i, sampleRate, frequency) {
-            var base = this.modulate[0];
-            return this.modulate[1](
-                i,
-                sampleRate,
-                frequency,
-                base(i, sampleRate, frequency, 0) +
-                    0.5 * base(i, sampleRate, frequency, 0.25) +
-                    0.25 * base(i, sampleRate, frequency, 0.5)
-            );
-        }
-    },
-    {
-        name: 'acoustic',
-        attack: function () { return 0.002; },
-        dampen: function () { return 1; },
-        wave: function (i, sampleRate, frequency) {
-
-            var vars = this.vars;
-            vars.valueTable = !vars.valueTable ? [] : vars.valueTable;
-            if (typeof (vars.playVal) == 'undefined') { vars.playVal = 0; }
-            if (typeof (vars.periodCount) == 'undefined') { vars.periodCount = 0; }
-
-            var valueTable = vars.valueTable;
-            var playVal = vars.playVal;
-            var periodCount = vars.periodCount;
-
-            var period = sampleRate / frequency;
-            var p_hundredth = Math.floor((period - Math.floor(period)) * 100);
-
-            var resetPlay = false;
-
-            if (valueTable.length <= Math.ceil(period)) {
-
-                valueTable.push(Math.round(Math.random()) * 2 - 1);
-
-                return valueTable[valueTable.length - 1];
-
-            } else {
-
-                valueTable[playVal] = (valueTable[playVal >= (valueTable.length - 1) ? 0 : playVal + 1] + valueTable[playVal]) * 0.5;
-
-                if (playVal >= Math.floor(period)) {
-                    if (playVal < Math.ceil(period)) {
-                        if ((periodCount % 100) >= p_hundredth) {
-                            // Reset
-                            resetPlay = true;
-                            valueTable[playVal + 1] = (valueTable[0] + valueTable[playVal + 1]) * 0.5;
-                            vars.periodCount++;
-                        }
-                    } else {
-                        resetPlay = true;
-                    }
-                }
-
-                var _return = valueTable[playVal];
-                if (resetPlay) { vars.playVal = 0; } else { vars.playVal++; }
-
-                return _return;
-
-            }
-        }
-    },
-    {
-        name: 'edm',
-        attack: function () { return 0.002; },
-        dampen: function () { return 1; },
-        wave: function (i, sampleRate, frequency) {
-            var base = this.modulate[0];
-            var mod = this.modulate.slice(1);
-            return mod[0](
-                i,
-                sampleRate,
-                frequency,
-                mod[9](
-                    i,
-                    sampleRate,
-                    frequency,
-                    mod[2](
-                        i,
-                        sampleRate,
-                        frequency,
-                        Math.pow(base(i, sampleRate, frequency, 0), 3) +
-                            Math.pow(base(i, sampleRate, frequency, 0.5), 5) +
-                            Math.pow(base(i, sampleRate, frequency, 1), 7)
-                    )
-                ) +
-                    mod[8](
-                        i,
-                        sampleRate,
-                        frequency,
-                        base(i, sampleRate, frequency, 1.75)
-                    )
-            );
-        }
-		
-
-		
-    });
-
-	
-	    // create a temp canvas we use for copying and scrolling
-		
-	//var tempCanvas=jQuery('<div/>', {
-  //  id: 'specvis',
-//}).appendTo('#spectrumcontainer');
-
-
- 
-
-    //javascriptNode.onaudioprocess = function () {
-// 
- //       // get the average for the first channel
-   //     var array = new Uint8Array(analyser.frequencyBinCount);
-    //    analyser.getByteFrequencyData(array);
- //
- // draw the spectrogram
- //      if (sourceNode.playbackState == sourceNode.PLAYING_STATE) {
- //         drawSpectrogram(array);
- //    }
- //  }
- 
-    function drawSpectrogram(array) {
- console.log('datafu');
-        // copy the current canvas onto the temp canvas
-        var canvas = document.getElementById("specvis");
-		var  ctx = canvas.getContext("2d");
-        ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
- 
-        // iterate over the elements from the array
-        for (var i = 0; i < array.length; i++) {
-            // draw each pixel with the specific color
-            var value = array[i];
-            ctx.fillStyle = hot.getColor(value).hex();
- 
-            // draw the line at the right side of the canvas
-            ctx.fillRect(tempCanvas.width - 1, tempCanvas.height - i, 1, 1);
-        }
- 
-        // set translate on the canvas
-        ctx.translate(-1, 0);
-        // draw the copied image
-        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, 0, 0, tempCanvas.width, tempCanvas.height);
- 
-        // reset the transformation matrix
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
-
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+<!-- Chart Widget, DevExtreme -->
+<script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/globalize/0.1.1/globalize.min.js"></script>
+        <script type="text/javascript" src="http://cdn3.devexpress.com/jslib/14.2.6/js/dx.chartjs.js"></script>
+<!-- AudioSynth (NOTE: Also saved on the USB, no CDN available so you can copy into a script tag or hold local copy -->
+<script src="audiosynth.js"></script>
+<!-- AngularJS -->
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.0-rc.0/angular.min.js"></script>
+<!-- Bootstrap to format -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet" />
+<!-- pusher-js, suggested for NASA API -->
+<script src="http://js.pusher.com/2.2/pusher.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.4/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pusher-angular/0.1.4/pusher-angular.min.js"></script>
+<script src="chroma.js"></script>
+<div ng-app="MyApp">
+
+    <div ng-controller="APICtrl">
+    </div>
+    <div ng-controller="Display">
+        <div class="panel panel-default col-lg-12 col-md-12 col-sm-12">
+            <div class="panel-body">
+                <h1>Hear Space</h1>
+            </div>
+        </div>
+        <div class="panel panel-default col-lg-6 col-md-6 col-sm-6">
+            <div class="panel-body">
+                Parameters
+
+                <div>
+                    <select ng-change="ChangeInstrument();" ng-model="instrument">
+                        <option>Piano</option>
+                        <option>Acoustic</option>
+                        <option>Organ</option>
+                        <option>EDM</option>
+                    </select></div>
+            </div>
+			<div id="spectrumcontainer">
+			<canvas id="specvis"></canvas>
+			</div>
+        </div>
+        <div class="panel panel-default col-lg-6 col-md-6 col-sm-6">
+            <div class="panel-body">
+                <div id="NoteGridObject"></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+var hot;
+var tempCanvas;
+	jQuery(document).ready(function(){
+	tempCanvas = jQuery("#specvis").get(0);;
+	//document.createElement("specvis");
+    var tempCtx = jQuery("#specvis")[0].getContext('2d');
+	
+    tempCanvas.width=500;
+    tempCanvas.height=360;
+	//jQuery('#spectrumcontainer').append
+	
+    // used for color distribution
+    hot = new chroma.ColorScale({
+        colors:['#000000', '#ff0000', '#ffff00', '#ffffff'],
+        positions:[0, .25, .75, 1],
+        mode:'rgb',
+        limits:[0, 300]
+    });
+		
+		
+	});
+    //Array of values holding: Longitude,Latitude,NoteValue for circle size
+    var DisplayArray = [];
+
+    //Array of notes, dynamic, so can change
+    NoteArray = ['A', 'A#', 'C', 'D', 'D#', 'F', 'G', 'A'];
+
+    //shared instrument variable
+    var instrument = 'piano';
+ 
+    //Angular module for API, display elements
+    angular.module('MyApp', ['pusher-angular'])
+    .controller('Display', ['$scope', '$pusher', function ($scope, $pusher) {
+        $scope.instrument = 'Piano';
+        $scope.ChangeInstrument = function () {
+            instrument = $scope.instrument.toString().toLowerCase();
+        }
+
+    }])
+
+    .controller('APICtrl', ['$scope', '$pusher', function ($scope, $pusher) {
+        //NASA suggested API
+        var client = new Pusher('fa15651bc1ad6c916fc7');
+        var pusher = $pusher(client);
+        var issChannel = pusher.subscribe('iss-channel');
+        //issChannel.bind('new-location', function (iss) {
+        //    console.log(iss);
+        //});
+    }]);
+	
+    $(document).ready(function () {
+        //Initialize synth instrument
+        //http://www.keithwhor.com/music/
+        Synth instanceof AudioSynth;
+        var testInstance = new AudioSynth;
+        testInstance instanceof AudioSynth;
+        testInstance === Synth;
+        var piano = Synth.createInstrument('piano');
+
+
+
+        //Okay, only complicated part here, API has a max number of request per some time period.  I store 50 entries in localStorage (clientside db essentially) and loop through those
+        //Didn't have time to chain 50 on the first go so we just add one.  So you can just populate the DataStore from the api directly = profit.
+        //-----------------------------------
+
+        //Check if localStorage item is there
+        var StringDataStore = localStorage.getItem('NASAISSData');
+        //declare the store for looping
+        var DataStore = [];
+        //Add one record, or don't add any if >50
+			if (StringDataStore == null || typeof StringDataStore === 'undefined') {
+				AddRecord();			}
+			else {
+				DataStore = JSON.parse(StringDataStore);
+				if (DataStore.length < 50) {
+					AddRecord();
+				}
+				else {
+				localStorage.clear();
+				}
+			}
+		//}
+		function AddRecord() {
+            //API I used, same data
+            $.getJSON('http://api.open-notify.org/iss-now.json?callback=?', function (iss) {
+                DataStore.push(iss.iss_position);
+                localStorage.setItem('NASAISSData', JSON.stringify(DataStore));
+            });
+        }
+        
+        //-----------------------------------
+
+
+
+        //Chart object - this is visualization, can be replaced with party-mode
+        $('#NoteGridObject').dxChart({
+            dataSource: DisplayArray,
+            commonSeriesSettings: {
+                type: 'bubble'
+            },
+            title: 'Hear Space ISS Coordinates',
+            tooltip: {
+                enabled: true,
+                location: "edge",
+                customizeText: function () { '<br/>Latitude: ' + this.argumentText + 'M <br/>Longitude: ' + this.valueText ; }
+            },
+            argumentAxis: {
+                label: {
+                    customizeText: function () {
+                        return this.value;
+                    }
+                },
+                title: 'Latitude'
+            },
+            customizePoint: function (point) {
+                //console.log(point);
+                if (point.size > 30) {
+                    return { color: 'red' }
+                }
+                else if (point.size < 14) {
+                    return { color: 'blue' }
+                }
+                else if (point.size < 22 && point.size >= 14) {
+                    return { color: 'green' }
+                }
+                else if (point.size < 30 && point.size >= 22) {
+                    return { color: 'yellow' }
+                }
+                else if (point.size < 14) {
+                    return { color: 'blue' }
+                }
+            },
+            valueAxis: {
+                label: {
+                    customizeText: function () {
+                        return this.value;
+                    }
+                },
+                title: 'Longitude'
+            },
+            legend: {
+                position: 'inside',
+                horizontalAlignment: 'left',
+                border: {
+                    visible: true
+                }
+            },
+            palette: ["#008000"],
+            onSeriesClick: function (e) {
+                var series = e.target;
+                series.isVisible() ? series.hide() : series.show();
+            },
+            series: [{
+                name: 'Note Value',
+                argumentField: 'latitude',
+                valueField: 'longitude',
+                sizeField: 'NoteValue'
+            }]
+        });
+
+
+        
+        //jQuery bind chart to container
+        var displayGrid = $("#NoteGridObject").dxChart("instance");
+
+
+        //Single Digit min/max/range default (0-9)
+        var Max = 9;
+        var Min = 0;
+        var Range = Max - Min;
+
+        var index = 0;
+        setInterval(function () {
+            //redeclare the instrument in case the user changes it
+            var piano = Synth.createInstrument(instrument);
+            
+            //grab the first digit after the decimal point
+            var noteValueChosen = DataStore[index].longitude.toString().split(".")[1][1];
+
+            //set new max/min/range (if you decide to use a new notevalueChosen (ex: all integers instead of 0-9)
+            if (noteValueChosen > Max) {
+                Max = noteValueChosen;
+            }
+            if (noteValueChosen < Min) {
+                Min = noteValueChosen;
+            }
+            Range = Max - Min;
+
+            //map the noteValue to the note array length 
+            NoteToPlay = Math.round((noteValueChosen - Min) * ((NoteArray.length - 1) / Range));
+
+            //Add a NoteValue to display the circles in the chart (*5 to get a better visual)
+            DataStore[index].NoteValue = NoteToPlay * 5;
+			
+			if (index > 9) {
+            //Push this value to the chart dataSource
+            DisplayArray.push(DataStore[index]);
+            //Update chart dataSource
+            displayGrid.option({ dataSource: DisplayArray });
+            //reRender chart
+            displayGrid.render();
+			}
+
+            //Octave, same deal as note my default was range of 3: 2nd/3rd/4th octaves
+            var octaveValueChosen = DataStore[index].longitude.toString().split(".")[1][2];
+            var OctaveToPlay = Math.round(octaveValueChosen * (2 / Range)) + 2;
+
+            //play the note (grab the note from the note array and use 2/3/4 octave
+            //Play(string note,int octave,decimal seconds(length))
+            piano.play(NoteArray[NoteToPlay], OctaveToPlay, 2);
+
+            //loop through datastore, again if you replace it with and api just put the API results right in the loop
+            if (index + 1 >= DataStore.length) {
+                index = 0;
+            }
+            else {
+                index++;
+            }
+			 AddRecord();
+			 
+			 /* function AddRecord() {
+            //API I used, same data
+            $.getJSON('http://api.open-notify.org/iss-now.json?callback=?', function (iss) {
+                DataStore.push(iss.iss_position);
+                localStorage.setItem('NASAISSData', JSON.stringify(DataStore));
+            });*/
+        
+        },
+		//interval between notes, currently static
+        500);
+
+    });
+
+
+</script>
+<script>
+    //audiosynth.js
+
+    var Synth, AudioSynth, AudioSynthInstrument;
+    !function () {
+
+        var URL = window.URL || window.webkitURL;
+        var Blob = window.Blob;
+
+        if (!URL || !Blob) {
+            throw new Error('This browser does not support AudioSynth');
+        }
+
+        var _encapsulated = false;
+        var AudioSynthInstance = null;
+        var pack = function (c, arg) { return [new Uint8Array([arg, arg >> 8]), new Uint8Array([arg, arg >> 8, arg >> 16, arg >> 24])][c]; };
+        var setPrivateVar = function (n, v, w, e) { Object.defineProperty(this, n, { value: v, writable: !!w, enumerable: !!e }); };
+        var setPublicVar = function (n, v, w) { setPrivateVar.call(this, n, v, w, true); };
+        AudioSynthInstrument = function AudioSynthInstrument() { this.__init__.apply(this, arguments); };
+        var setPriv = setPrivateVar.bind(AudioSynthInstrument.prototype);
+        var setPub = setPublicVar.bind(AudioSynthInstrument.prototype);
+        setPriv('__init__', function (a, b, c) {
+            if (!_encapsulated) { throw new Error('AudioSynthInstrument can only be instantiated from the createInstrument method of the AudioSynth object.'); }
+            setPrivateVar.call(this, '_parent', a);
+            setPublicVar.call(this, 'name', b);
+            setPrivateVar.call(this, '_soundID', c);
+        });
+        setPub('play', function (note, octave, duration) {
+            return this._parent.play(this._soundID, note, octave, duration);
+        });
+        setPub('generate', function (note, octave, duration) {
+            return this._parent.generate(this._soundID, note, octave, duration);
+        });
+        AudioSynth = function AudioSynth() { if (AudioSynthInstance instanceof AudioSynth) { return AudioSynthInstance; } else { this.__init__(); return this; } };
+        setPriv = setPrivateVar.bind(AudioSynth.prototype);
+        setPub = setPublicVar.bind(AudioSynth.prototype);
+        setPriv('_debug', false, true);
+        setPriv('_bitsPerSample', 16);
+        setPriv('_channels', 1);
+        setPriv('_sampleRate', 44100, true);
+        setPub('setSampleRate', function (v) {
+            this._sampleRate = Math.max(Math.min(v | 0, 44100), 4000);
+            this._clearCache();
+            return this._sampleRate;
+        });
+        setPub('getSampleRate', function () { return this._sampleRate; });
+        setPriv('_volume', 32768, true);
+        setPub('setVolume', function (v) {
+            v = parseFloat(v); if (isNaN(v)) { v = 0; }
+            v = Math.round(v * 32768);
+            this._volume = Math.max(Math.min(v | 0, 32768), 0);
+            this._clearCache();
+            return this._volume;
+        });
+        setPub('getVolume', function () { return Math.round(this._volume / 32768 * 10000) / 10000; });
+        setPriv('_notes', { 'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13, 'E': 329.63, 'F': 346.23, 'F#': 369.99, 'G': 392.00, 'G#': 415.30, 'A': 440.00, 'A#': 466.16, 'B': 493.88 });
+        setPriv('_fileCache', [], true);
+        setPriv('_temp', {}, true);
+        setPriv('_sounds', [], true);
+        setPriv('_mod', [function (i, s, f, x) { return Math.sin((2 * Math.PI) * (i / s) * f + x); }]);
+        setPriv('_resizeCache', function () {
+            var f = this._fileCache;
+            var l = this._sounds.length;
+            while (f.length < l) {
+                var octaveList = [];
+                for (var i = 0; i < 8; i++) {
+                    var noteList = {};
+                    for (var k in this._notes) {
+                        noteList[k] = {};
+                    }
+                    octaveList.push(noteList);
+                }
+                f.push(octaveList);
+            }
+        });
+        setPriv('_clearCache', function () {
+            this._fileCache = [];
+            this._resizeCache();
+        });
+        setPub('generate', function (sound, note, octave, duration) {
+            var thisSound = this._sounds[sound];
+            if (!thisSound) {
+                for (var i = 0; i < this._sounds.length; i++) {
+                    if (this._sounds[i].name == sound) {
+                        thisSound = this._sounds[i];
+                        sound = i;
+                        break;
+                    }
+                }
+            }
+            if (!thisSound) { throw new Error('Invalid sound or sound ID: ' + sound); }
+            var t = (new Date).valueOf();
+            this._temp = {};
+            octave |= 0;
+            octave = Math.min(8, Math.max(1, octave));
+            var time = !duration ? 2 : parseFloat(duration);
+            if (typeof (this._notes[note]) == 'undefined') { throw new Error(note + ' is not a valid note.'); }
+            if (typeof (this._fileCache[sound][octave - 1][note][time]) != 'undefined') {
+                if (this._debug) { console.log((new Date).valueOf() - t, 'ms to retrieve (cached)'); }
+                return this._fileCache[sound][octave - 1][note][time];
+            } else {
+                var frequency = this._notes[note] * Math.pow(2, octave - 4);
+                var sampleRate = this._sampleRate;
+                var volume = this._volume;
+                var channels = this._channels;
+                var bitsPerSample = this._bitsPerSample;
+                var attack = thisSound.attack(sampleRate, frequency, volume);
+                var dampen = thisSound.dampen(sampleRate, frequency, volume);
+                var waveFunc = thisSound.wave;
+                var waveBind = { modulate: this._mod, vars: this._temp };
+                var val = 0;
+                var curVol = 0;
+
+                var data = new Uint8Array(new ArrayBuffer(Math.ceil(sampleRate * time * 2)));
+                var attackLen = (sampleRate * attack) | 0;
+                var decayLen = (sampleRate * time) | 0;
+
+                for (var i = 0 | 0; i !== attackLen; i++) {
+
+                    val = volume * (i / (sampleRate * attack)) * waveFunc.call(waveBind, i, sampleRate, frequency, volume);
+
+                    data[i << 1] = val;
+                    data[(i << 1) + 1] = val >> 8;
+
+                }
+
+                for (; i !== decayLen; i++) {
+
+                    val = volume * Math.pow((1 - ((i - (sampleRate * attack)) / (sampleRate * (time - attack)))), dampen) * waveFunc.call(waveBind, i, sampleRate, frequency, volume);
+
+                    data[i << 1] = val;
+                    data[(i << 1) + 1] = val >> 8;
+
+                }
+				//Uint8Array is a frequency bucket - MARKER
+				drawSpectrogram(data);
+				
+				
+				
+                var out = [
+                    'RIFF',
+                    pack(1, 4 + (8 + 24/* chunk 1 length */) + (8 + 8/* chunk 2 length */)), // Length
+                    'WAVE',
+                    // chunk 1
+                    'fmt ', // Sub-chunk identifier
+                    pack(1, 16), // Chunk length
+                    pack(0, 1), // Audio format (1 is linear quantization)
+                    pack(0, channels),
+                    pack(1, sampleRate),
+                    pack(1, sampleRate * channels * bitsPerSample / 8), // Byte rate
+                    pack(0, channels * bitsPerSample / 8),
+                    pack(0, bitsPerSample),
+                    // chunk 2
+                    'data', // Sub-chunk identifier
+                    pack(1, data.length * channels * bitsPerSample / 8), // Chunk length
+                    data
+                ];
+                var blob = new Blob(out, { type: 'audio/wav' });
+                var dataURI = URL.createObjectURL(blob);
+               // this._fileCache[sound][octave - 1][note][time] = dataURI;
+                if (this._debug) { console.log((new Date).valueOf() - t, 'ms to generate'); }
+                return dataURI;
+            }
+        });
+        setPub('play', function (sound, note, octave, duration) {
+            var src = this.generate(sound, note, octave, duration);
+            var audio = new Audio(src);
+            audio.play();
+            return true;
+        });
+        setPub('debug', function () { this._debug = true; });
+        setPub('createInstrument', function (sound) {
+            var n = 0;
+            var found = false;
+            if (typeof (sound) == 'string') {
+                for (var i = 0; i < this._sounds.length; i++) {
+                    if (this._sounds[i].name == sound) {
+                        found = true;
+                        n = i;
+                        break;
+                    }
+                }
+            } else {
+                if (this._sounds[sound]) {
+                    n = sound;
+                    sound = this._sounds[n].name;
+                    found = true;
+                }
+            }
+            if (!found) { throw new Error('Invalid sound or sound ID: ' + sound); }
+            _encapsulated = true;
+            var ins = new AudioSynthInstrument(this, sound, n);
+            _encapsulated = false;
+            return ins;
+        });
+        setPub('listSounds', function () {
+            var r = [];
+            for (var i = 0; i < this._sounds.length; i++) {
+                r.push(this._sounds[i].name);
+            }
+            return r;
+        });
+        setPriv('__init__', function () {
+            this._resizeCache();
+        });
+        setPub('loadSoundProfile', function () {
+            for (var i = 0, len = arguments.length; i < len; i++) {
+                o = arguments[i];
+                if (!(o instanceof Object)) { throw new Error('Invalid sound profile.'); }
+                this._sounds.push(o);
+            }
+            this._resizeCache();
+            return true;
+        });
+        setPub('loadModulationFunction', function () {
+            for (var i = 0, len = arguments.length; i < len; i++) {
+                f = arguments[i];
+                if (typeof (f) != 'function') { throw new Error('Invalid modulation function.'); }
+                this._mod.push(f);
+            }
+            return true;
+        });
+        AudioSynthInstance = new AudioSynth();
+        Synth = AudioSynthInstance;
+    }();
+
+    Synth.loadModulationFunction(
+        function (i, sampleRate, frequency, x) { return 1 * Math.sin(2 * Math.PI * ((i / sampleRate) * frequency) + x); },
+        function (i, sampleRate, frequency, x) { return 1 * Math.sin(4 * Math.PI * ((i / sampleRate) * frequency) + x); },
+        function (i, sampleRate, frequency, x) { return 1 * Math.sin(8 * Math.PI * ((i / sampleRate) * frequency) + x); },
+        function (i, sampleRate, frequency, x) { return 1 * Math.sin(0.5 * Math.PI * ((i / sampleRate) * frequency) + x); },
+        function (i, sampleRate, frequency, x) { return 1 * Math.sin(0.25 * Math.PI * ((i / sampleRate) * frequency) + x); },
+        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(2 * Math.PI * ((i / sampleRate) * frequency) + x); },
+        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(4 * Math.PI * ((i / sampleRate) * frequency) + x); },
+        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(8 * Math.PI * ((i / sampleRate) * frequency) + x); },
+        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(0.5 * Math.PI * ((i / sampleRate) * frequency) + x); },
+        function (i, sampleRate, frequency, x) { return 0.5 * Math.sin(0.25 * Math.PI * ((i / sampleRate) * frequency) + x); }
+    );
+
+    Synth.loadSoundProfile({
+        name: 'piano',
+        attack: function () { return 0.002; },
+        dampen: function (sampleRate, frequency, volume) {
+            return Math.pow(0.5 * Math.log((frequency * volume) / sampleRate), 2);
+        },
+        wave: function (i, sampleRate, frequency, volume) {
+            var base = this.modulate[0];
+            return this.modulate[1](
+                i,
+                sampleRate,
+                frequency,
+                Math.pow(base(i, sampleRate, frequency, 0), 2) +
+                    (0.75 * base(i, sampleRate, frequency, 0.25)) +
+                    (0.1 * base(i, sampleRate, frequency, 0.5))
+            );
+        }
+    },
+    {
+        name: 'organ',
+        attack: function () { return 0.3 },
+        dampen: function (sampleRate, frequency) { return 1 + (frequency * 0.01); },
+        wave: function (i, sampleRate, frequency) {
+            var base = this.modulate[0];
+            return this.modulate[1](
+                i,
+                sampleRate,
+                frequency,
+                base(i, sampleRate, frequency, 0) +
+                    0.5 * base(i, sampleRate, frequency, 0.25) +
+                    0.25 * base(i, sampleRate, frequency, 0.5)
+            );
+        }
+    },
+    {
+        name: 'acoustic',
+        attack: function () { return 0.002; },
+        dampen: function () { return 1; },
+        wave: function (i, sampleRate, frequency) {
+
+            var vars = this.vars;
+            vars.valueTable = !vars.valueTable ? [] : vars.valueTable;
+            if (typeof (vars.playVal) == 'undefined') { vars.playVal = 0; }
+            if (typeof (vars.periodCount) == 'undefined') { vars.periodCount = 0; }
+
+            var valueTable = vars.valueTable;
+            var playVal = vars.playVal;
+            var periodCount = vars.periodCount;
+
+            var period = sampleRate / frequency;
+            var p_hundredth = Math.floor((period - Math.floor(period)) * 100);
+
+            var resetPlay = false;
+
+            if (valueTable.length <= Math.ceil(period)) {
+
+                valueTable.push(Math.round(Math.random()) * 2 - 1);
+
+                return valueTable[valueTable.length - 1];
+
+            } else {
+
+                valueTable[playVal] = (valueTable[playVal >= (valueTable.length - 1) ? 0 : playVal + 1] + valueTable[playVal]) * 0.5;
+
+                if (playVal >= Math.floor(period)) {
+                    if (playVal < Math.ceil(period)) {
+                        if ((periodCount % 100) >= p_hundredth) {
+                            // Reset
+                            resetPlay = true;
+                            valueTable[playVal + 1] = (valueTable[0] + valueTable[playVal + 1]) * 0.5;
+                            vars.periodCount++;
+                        }
+                    } else {
+                        resetPlay = true;
+                    }
+                }
+
+                var _return = valueTable[playVal];
+                if (resetPlay) { vars.playVal = 0; } else { vars.playVal++; }
+
+                return _return;
+
+            }
+        }
+    },
+    {
+        name: 'edm',
+        attack: function () { return 0.002; },
+        dampen: function () { return 1; },
+        wave: function (i, sampleRate, frequency) {
+            var base = this.modulate[0];
+            var mod = this.modulate.slice(1);
+            return mod[0](
+                i,
+                sampleRate,
+                frequency,
+                mod[9](
+                    i,
+                    sampleRate,
+                    frequency,
+                    mod[2](
+                        i,
+                        sampleRate,
+                        frequency,
+                        Math.pow(base(i, sampleRate, frequency, 0), 3) +
+                            Math.pow(base(i, sampleRate, frequency, 0.5), 5) +
+                            Math.pow(base(i, sampleRate, frequency, 1), 7)
+                    )
+                ) +
+                    mod[8](
+                        i,
+                        sampleRate,
+                        frequency,
+                        base(i, sampleRate, frequency, 1.75)
+                    )
+            );
+        }
+		
+
+		
+    });
+
+	
+	    // create a temp canvas we use for copying and scrolling
+		
+	//var tempCanvas=jQuery('<div/>', {
+  //  id: 'specvis',
+//}).appendTo('#spectrumcontainer');
+
+
+ 
+
+    //javascriptNode.onaudioprocess = function () {
+// 
+ //       // get the average for the first channel
+   //     var array = new Uint8Array(analyser.frequencyBinCount);
+    //    analyser.getByteFrequencyData(array);
+ //
+ // draw the spectrogram
+ //      if (sourceNode.playbackState == sourceNode.PLAYING_STATE) {
+ //         drawSpectrogram(array);
+ //    }
+ //  }
+ 
+    function drawSpectrogram(array) {
+ console.log('datafu');
+        // copy the current canvas onto the temp canvas
+        var canvas = document.getElementById("specvis");
+		var  ctx = canvas.getContext("2d");
+        ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+ 
+        // iterate over the elements from the array
+        for (var i = 0; i < array.length; i++) {
+            // draw each pixel with the specific color
+            var value = array[i];
+            ctx.fillStyle = hot.getColor(value).hex();
+ 
+            // draw the line at the right side of the canvas
+            ctx.fillRect(tempCanvas.width - 1, tempCanvas.height - i, 1, 1);
+        }
+ 
+        // set translate on the canvas
+        ctx.translate(-1, 0);
+        // draw the copied image
+        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, 0, 0, tempCanvas.width, tempCanvas.height);
+ 
+        // reset the transformation matrix
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
 </script>
